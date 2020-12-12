@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "C:\\Users\\sjwoo\\anaconda3\\envs\\cv_torch\\python.exe"
+    "python.pythonPath": "C:\\Users\\sjwoo\\anaconda3\\envs\\cv_torch\\python.exe",
+    "git.ignoreLimitWarning": true
 }
