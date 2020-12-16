@@ -75,16 +75,16 @@ class ImageDataLoader(Dataset):
         # flist_color = load_filelist(self.path, self.split) # reference
         # flist_gt = load_filelist(self.path, self.split) # ground truth
             
-        monochrome_image = Image.open(self.flist_target[index]).convert('L')
-        color_image = Image.open(self.flist_target[index]).convert('RGB')
-        gt_image = Image.open(self.flist_target[index]).convert('RGB')
+        monochrome_image = Image.open(self.flist_mono[index]).convert('L')
+        color_image = Image.open(self.flist_color[index]).convert('RGB')
+        gt_image = Image.open(self.flist_gt[index]).convert('RGB')
         
         mo_image = self.transform_tar(monochrome_image)
         co_image = self.transform_ref(color_image)
         gt_image = self.transform_gt(gt_image)
         
         croph, cropw = 256, 512
-        i, j, h, w = transforms.RandomCrop.get_params(common_image, output_size=(croph, cropw)) 
+        i, j, h, w = transforms.RandomCrop.get_params(monochrome_image, output_size=(croph, cropw)) 
         target_image = F.crop(mo_image, i, j, h, w) 
         ref_image = F.crop(co_image, i, j, h, w)
 

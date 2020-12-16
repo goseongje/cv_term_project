@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchsummary import summary
@@ -61,7 +62,7 @@ class ResNet(nn.Module):
 	def __init__(self, num_layers, block, net_num):
 		super(ResNet, self).__init__()
 		self.num_layers = num_layers
-        self.net_num = net_num
+		self.net_num = net_num
 		if net_num == 1:
 			self.stride = 2
 		else:
@@ -80,18 +81,10 @@ class ResNet(nn.Module):
 		self.relu = nn.ReLU(inplace=True)
 
 		# feature map size = 16x128x256					
-		self.layers_2n = self.get_layers(block, 32, 32, stride=1)	#2, 3
-		"""
-		self.layers_4n = self.get_layers(block, 32, 32, stride=1)	#4, 5
-		self.layers_6n = self.get_layers(block, 32, 32, stride=1)	#6, 7
-		self.layers_8n = self.get_layers(block, 32, 32, stride=1)	#8, 9
-		self.layers_10n = self.get_layers(block, 32, 32, stride=1)	#10, 11
-		self.layers_12n = self.get_layers(block, 32, 32, stride=1)	#12, 13
-		self.layers_14n = self.get_layers(block, 32, 32, stride=1)	#14, 15
-		self.layers_16n = self.get_layers(block, 32, 32, stride=1)	#16, 17
-		"""
+		self.layers_2n = self.get_layers(block, 32, 32, stride=1)	# 2 ~ 17
+
         # output layer kernel = 3 X 3, feature map size = 16x128x256
-		self.conv2 = nn.Conv2d(in_channels=32, out_channels=out_channels, kernel_size=3, 
+		self.conv2 = nn.Conv2d(in_channels=32, out_channels=self.out_channels, kernel_size=3, 
 							   stride=1, padding=1, bias=False)		
 
 
@@ -113,25 +106,14 @@ class ResNet(nn.Module):
 		x = self.conv1(x)
 		x = self.bn1(x)
 		x = self.relu(x)
-
 		x = self.layers_2n(x)
-		"""
-		x = self.layers_4n(x)
-		x = self.layers_6n(x)
-		x = self.layers_8n(x)
-		x = self.layers_10n(x)
-		x = self.layers_12n(x)
-		x = self.layers_14n(x)                                        
-		x = self.layers_16n(x)
-		"""
-		x = self.conv2(x)
-		return x
+		f = self.conv2(x)
+		return f
 
 
 class Attention(nn.Module):
-	def __init__(self, num_layers):
-		super().__init__()
-		self.num_layers = num_layers
+	def __init__(self):
+		super().__init__()		
         # input image c x h x w : 1 x 256 x 512
         # 첫번째 레이어 kernel = 5 X 5, stride = 2
 		self.attn1 = nn.Conv3d(in_channels=32, out_channels=32, kernel_size=1,
@@ -142,8 +124,8 @@ class Attention(nn.Module):
 
 	def forward(self, x):
 		x = self.sig(self.attn1(x))
-		x = self.sig(self.attn2(x))
-		return x              
+		wf = self.sig(self.attn2(x))
+		return wf
 
 
 class ResidualBlock3d(nn.Module):
@@ -209,10 +191,7 @@ class Regulation3d(nn.Module):
 		self.bn4 = nn.BatchNorm2d(32)
 		self.relu = nn.ReLU(inplace=True)
 
-		self.layers_2n = self.get_layers(block, 32, 32, stride=2)	# 35, 31			
-		self.layers_4n = self.get_layers(block, 32, 32, stride=2)	# 36, 28
-		self.layers_6n = self.get_layers(block, 32, 32, stride=2)	# 37, 25
-		self.layers_8n = self.get_layers(block, 32, 32, stride=2)	# 38, 22
+		self.layers_2n = self.get_layers(block, 32, 32, stride=2)	# 35, 31 x 4		
 
 		self.output = nn.ConvTranspose3d(in_channels=16, out_channels=1, kernel_size=3, 
 										stride=1, padding=1, bias=False) #39   
@@ -239,7 +218,7 @@ class Regulation3d(nn.Module):
 		x = self.bn2(x)
 		x = self.relu(x)
 		
-		for i in range(4):
+		for _ in range(4):
 			x = self.conv3(x)		
 			x = self.bn3(x)
 			x = self.relu(x)
@@ -251,27 +230,45 @@ class Regulation3d(nn.Module):
 			x = self.relu(x)				
 		
 		x = self.layers_2n(x)
-		x = self.layers_4n(x)
-		x = self.layers_6n(x)
-		x = self.layers_8n(x)
-
 		x = self.output(x)
 
 		return x 
 
+class WeightVolGen(nn.Module):
+	def __init__(self):
+		super(WeightVolGen, self).__init__()
+		self.block = ResidualBlock
+		self.block3d = ResidualBlock3d
+
+		# resnet1 for Y(gray image)
+		self.resnet1_y = ResNet(8, self.block, 1)
+		# resnet1 for YR(ref image)
+		self.resnet1_yr = ResNet(8, self.block, 1)
+		# attention for Concatenated feature volume
+		self.attention = Attention()
+		# 3-D Regulation
+		self.regulation = Regulation3d(4, self.block3d)
+	
+	def forward(self, target_image, guide_image):
+		feature_map1 = self.resnet1_y(target_image)
+		feature_map2 = self.resnet1_y(guide_image)
+		attn_weighted_fvol = self.attention(torch.cat([feature_map1, feature_map2], dim=1))
+		weight_volume = self.regulation(attn_weighted_fvol)
+		return weight_volume
+		
+
 def resnet1():
-	block = ResidualBlock
-	# total number of layers if 8n + 2. if n is 2 then the depth of network is 18.	
+	block = ResidualBlock	
 	model = ResNet(8, block, 1)
 	return model
 
 def attention():
-	model = Attention(1)
+	model = Attention()
 	return model
 
 def regulation3d():
 	block = ResidualBlock3d
-	model = Regulation3d(0, block)
+	model = Regulation3d(4, block)
 	return model
 
 def resnet2():
@@ -287,4 +284,4 @@ def resnet3():
 def resnet4():
 	block = ResidualBlock	
 	model = ResNet(8, block, 4)
-	return model	
+	return model
