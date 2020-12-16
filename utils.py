@@ -29,4 +29,8 @@ def load_filelist(path, split):
         for file_name in os.listdir(img_dir):
             filelist.append(os.path.join(img_dir, file_name))    
     filelist.sort()
-    return filelist    
+    return filelist
+
+def show_model(net):
+    for idx, m in enumerate(net.modules()):
+        print(idx, '->', m)
