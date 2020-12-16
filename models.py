@@ -114,19 +114,32 @@ class ResNet(nn.Module):
 class Attention(nn.Module):
 	def __init__(self):
 		super().__init__()		
-        # input image c x h x w : 1 x 256 x 512
-        # 첫번째 레이어 kernel = 5 X 5, stride = 2
-		self.attn1 = nn.Conv3d(in_channels=32, out_channels=32, kernel_size=1,
+        # input image c x h x w : 1 x 32 x 128 x 256
+        # kernel = 1 X 1, stride = 1
+		self.attn1 = nn.Conv3d(in_channels=32, out_channels=32, kernel_size=(1,1,1),
 								stride=1, padding=1, bias=False)
 		self.sig = nn.Sigmoid()
-		self.attn2 = nn.Conv3d(in_channels=32, out_channels=1, kernel_size=1, 
+		self.attn2 = nn.Conv3d(in_channels=32, out_channels=1, kernel_size=(1,1,1), 
 								stride=1, padding=1, bias=False)
 
 	def forward(self, x):
-		x = self.sig(self.attn1(x))
-		wf = self.sig(self.attn2(x))
-		return wf
+		x = self.attn1(x)
+		x = self.sig(x)
+		x = self.attn2(x)
+		x = self.sig(x)
+		return x
 
+class IdentityPadding3d(nn.Module):
+	def __init__(self, in_channels, out_channels, stride):
+		super(IdentityPadding3d, self).__init__()
+		
+		self.pooling = nn.MaxPool3d(1, stride=stride)
+		self.add_channels = out_channels - in_channels
+    
+	def forward(self, x):
+		out = F.pad(x, (0, 0, 0, 0, 0, self.add_channels))
+		out = self.pooling(out)
+		return out
 
 class ResidualBlock3d(nn.Module):
 	def __init__(self, in_channels, out_channels, stride=1, down_sample=False):
@@ -134,16 +147,16 @@ class ResidualBlock3d(nn.Module):
 		# for 3-D regulation
 		self.cont1 = nn.ConvTranspose3d(in_channels, out_channels, kernel_size=3, 
 										stride=stride, padding=1, bias=False) #35, 36, 37, 38
-		self.bn1 = nn.BatchNorm2d(out_channels)
+		self.bn1 = nn.BatchNorm3d(out_channels)
 		self.relu = nn.ReLU(inplace=True)
 
 		self.conv1 = nn.Conv3d(in_channels, out_channels, kernel_size=3,
 							   stride=1, padding=1, bias=False)	#31, 28, 25, 22
-		self.bn2 = nn.BatchNorm2d(out_channels)		
+		self.bn2 = nn.BatchNorm3d(out_channels)		
 		self.stride = stride
 
 		if down_sample:
-			self.down_sample = IdentityPadding(in_channels, out_channels, stride)
+			self.down_sample = IdentityPadding3d(in_channels, out_channels, stride)
 		else:
 			self.down_sample = None
 
@@ -171,29 +184,39 @@ class Regulation3d(nn.Module):
 		super().__init__()
 		self.num_layers = num_layers
 
-		self.conv1 = nn.Conv3d(in_channels=1, out_channels=16, kernel_size=3, 
+		self.conv1 = nn.Conv3d(in_channels=1, out_channels=32, kernel_size=3, 
 								stride=1, padding=1, bias=False) #21
-		self.bn1 = nn.BatchNorm2d(16)
+		self.bn1 = nn.BatchNorm3d(32)
 		self.relu = nn.ReLU(inplace=True)
 
-		self.conv2 = nn.Conv3d(in_channels=16, out_channels=16, kernel_size=3,
+		self.conv2 = nn.Conv3d(in_channels=32, out_channels=32, kernel_size=3,
 								stride=1, padding=1, bias=False) #22
-		self.bn2 = nn.BatchNorm2d(16)
+		self.bn2 = nn.BatchNorm3d(32)
 		self.relu = nn.ReLU(inplace=True)	
 
-		self.conv3 = nn.Conv3d(in_channels=16, out_channels=32, kernel_size=3, 
-								stride=2, padding=1, bias=False) #23, 26, 29, 32
-		self.bn3 = nn.BatchNorm2d(32)
+		self.conv3 = nn.Conv3d(in_channels=32, out_channels=64, kernel_size=3, 
+								stride=2, padding=2, bias=False) #23, 26, 29, 32
+		self.conv3_1 = nn.Conv3d(in_channels=64, out_channels=64, kernel_size=3, 
+								stride=2, padding=2, bias=False) #23, 26, 29, 32								
+		self.bn3 = nn.BatchNorm3d(64)
 		self.relu = nn.ReLU(inplace=True)
 
-		self.conv4 = nn.Conv3d(in_channels=32, out_channels=32, kernel_size=3,
+		self.conv4 = nn.Conv3d(in_channels=64, out_channels=64, kernel_size=3,
 								stride=1, padding=1, bias=False) #24, 25, 27, 28, 30, 31, 33, 34
-		self.bn4 = nn.BatchNorm2d(32)
+		self.bn4 = nn.BatchNorm3d(64)
 		self.relu = nn.ReLU(inplace=True)
 
-		self.layers_2n = self.get_layers(block, 32, 32, stride=2)	# 35, 31 x 4		
+		self.conv5 = nn.Conv3d(in_channels=64, out_channels=64, kernel_size=3,
+								stride=1, padding=1, bias=False) #24, 25, 27, 28, 30, 31, 33, 34
+		self.bn5 = nn.BatchNorm3d(64)
+		self.relu = nn.ReLU(inplace=True)
 
-		self.output = nn.ConvTranspose3d(in_channels=16, out_channels=1, kernel_size=3, 
+		self.layers_2n = self.get_layers(block, 64, 64, stride=2)	# 35, 31
+		self.layers_4n = self.get_layers(block, 64, 64, stride=2)	# 36, 28
+		self.layers_6n = self.get_layers(block, 64, 64, stride=2)	# 37, 25
+		self.layers_8n = self.get_layers(block, 64, 32, stride=2)	# 38, 22
+
+		self.output = nn.ConvTranspose3d(in_channels=32, out_channels=1, kernel_size=3, 
 										stride=1, padding=1, bias=False) #39   
 
 	def get_layers(self, block, in_channels, out_channels, stride):
@@ -216,10 +239,13 @@ class Regulation3d(nn.Module):
 		x = self.relu(x)
 		x = self.conv2(x)		
 		x = self.bn2(x)
-		x = self.relu(x)
+		x = self.relu(x)		
 		
-		for _ in range(4):
-			x = self.conv3(x)		
+		for i in range(4):
+			if i == 0:
+				x = self.conv3(x)
+			else:
+				x = self.conv3_1(x)		
 			x = self.bn3(x)
 			x = self.relu(x)
 			x = self.conv4(x)		
@@ -228,8 +254,14 @@ class Regulation3d(nn.Module):
 			x = self.conv4(x)		
 			x = self.bn4(x)
 			x = self.relu(x)				
+			x = self.conv5(x)		
+			x = self.bn5(x)
+			x = self.relu(x)		
 		
 		x = self.layers_2n(x)
+		x = self.layers_4n(x)
+		x = self.layers_6n(x)
+		x = self.layers_8n(x)
 		x = self.output(x)
 
 		return x 
@@ -247,15 +279,15 @@ class WeightVolGen(nn.Module):
 		# attention for Concatenated feature volume
 		self.attention = Attention()
 		# 3-D Regulation
-		self.regulation = Regulation3d(4, self.block3d)
+		self.regulation = Regulation3d(1, self.block3d)
 	
 	def forward(self, target_image, guide_image):
 		feature_map1 = self.resnet1_y(target_image)
-		feature_map2 = self.resnet1_y(guide_image)
-		attn_weighted_fvol = self.attention(torch.cat([feature_map1, feature_map2], dim=1))
+		feature_map2 = self.resnet1_y(guide_image)				
+		attn_weighted_fvol = self.attention(torch.stack([feature_map1, feature_map2], dim=2))
 		weight_volume = self.regulation(attn_weighted_fvol)
 		return weight_volume
-		
+
 
 def resnet1():
 	block = ResidualBlock	
@@ -268,7 +300,7 @@ def attention():
 
 def regulation3d():
 	block = ResidualBlock3d
-	model = Regulation3d(4, block)
+	model = Regulation3d(1, block)
 	return model
 
 def resnet2():

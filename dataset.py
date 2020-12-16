@@ -25,7 +25,7 @@ class AddGaussianNoise(object):
 
 
 class ImageDataLoader(Dataset):
-    def __init__(self, path, split="train_extra"):
+    def __init__(self, path, split="train"):
         super(ImageDataLoader, self).__init__()
 
         self.path = path
@@ -54,14 +54,15 @@ class ImageDataLoader(Dataset):
 
     # def transform(self, img):
     transform_tar = transforms.Compose([
-        #transforms.Grayscale(num_output_channels=3),
+        transforms.Grayscale(num_output_channels=1),
         transforms.ToTensor(),
         transforms.Normalize((0.5), (0.5)),        
         AddGaussianNoise(0., 0.01)])
     
     transform_ref = transforms.Compose([
+        transforms.Grayscale(num_output_channels=1),
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        transforms.Normalize((0.5), (0.5)),
         AddGaussianNoise(0., 0.03)])
     
     transform_gt = transforms.Compose([
@@ -70,12 +71,15 @@ class ImageDataLoader(Dataset):
         # return transform_tar(img), transform_ref(img), transform_gt(img) 
         
 
-    def load_images(self, index):    
-        # flist_mono = load_filelist(self.path, self.split) # gray
-        # flist_color = load_filelist(self.path, self.split) # reference
-        # flist_gt = load_filelist(self.path, self.split) # ground truth
-            
-        monochrome_image = Image.open(self.flist_mono[index]).convert('L')
+    def load_images(self, index):  
+        """
+        path = './data/cityscapes/leftImg8bit'  
+        split = 'train'
+        flist_mono = load_filelist(path, split) # gray
+        flist_color = load_filelist(path, split) # reference
+        flist_gt = load_filelist(path, split) # ground truth
+        """    
+        monochrome_image = Image.open(self.flist_mono[index])
         color_image = Image.open(self.flist_color[index]).convert('RGB')
         gt_image = Image.open(self.flist_gt[index]).convert('RGB')
         
@@ -87,13 +91,17 @@ class ImageDataLoader(Dataset):
         i, j, h, w = transforms.RandomCrop.get_params(monochrome_image, output_size=(croph, cropw)) 
         target_image = F.crop(mo_image, i, j, h, w) 
         ref_image = F.crop(co_image, i, j, h, w)
-
-        # list_img = []
-        # list_img.append(target_image)
-        # list_img.append(ref_image)
-        # list_img.append(gt_image)
-        # imshow(list_img)
+        """
+        list_img = []
+        list_img.append(target_image)
+        list_img.append(ref_image)
+        list_img.append(gt_image)
+        imshow(list_img)
+        """
         return target_image, ref_image, gt_image     
 
     def load_name(self, index):
-        return os.path.basename(self.flist_gt[index])           
+        return os.path.basename(self.flist_gt[index])
+
+#img = ImageDataLoader('./data/cityscapes/leftImg8bit')
+#img.load_images(0)
