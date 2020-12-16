@@ -25,17 +25,17 @@ class AddGaussianNoise(object):
 
 
 class ImageDataLoader(Dataset):
-    def __init__(self, path, split="train"):
+    def __init__(self, path, split="train_extra"):
         super(ImageDataLoader, self).__init__()
 
         self.path = path
         self.split = split
 
-        self.flist_target = load_filelist(self.path, self.split)
-        self.flist_guide = load_filelist(self.path, self.split)
+        self.flist_mono = load_filelist(self.path, self.split)
+        self.flist_color = load_filelist(self.path, self.split)
         self.flist_gt = load_filelist(self.path, self.split)
         
-        self.total = len(self.flist_target)     
+        self.total = len(self.flist_mono)     
 
 
     def __len__(self):
@@ -52,36 +52,41 @@ class ImageDataLoader(Dataset):
         return item
  
 
-    def transform(self, img):
-        transform_tar = transforms.Compose([
-            transforms.Grayscale(num_output_channels=3),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5), (0.5)),        
-            AddGaussianNoise(0., 0.01)])
-        
-        transform_ref = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-            AddGaussianNoise(0., 0.03)])
-        
-        transform_gt = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])        
-        return transform_tar(img), transform_ref(img), transform_gt(img) 
+    # def transform(self, img):
+    transform_tar = transforms.Compose([
+        #transforms.Grayscale(num_output_channels=3),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5), (0.5)),        
+        AddGaussianNoise(0., 0.01)])
+    
+    transform_ref = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        AddGaussianNoise(0., 0.03)])
+    
+    transform_gt = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])        
+        # return transform_tar(img), transform_ref(img), transform_gt(img) 
         
 
     def load_images(self, index):    
-        # flist_target = load_filelist(self.path, self.split) # gray
-        # flist_ref = load_filelist(self.path, self.split) # reference
+        # flist_mono = load_filelist(self.path, self.split) # gray
+        # flist_color = load_filelist(self.path, self.split) # reference
         # flist_gt = load_filelist(self.path, self.split) # ground truth
             
-        common_image = Image.open(self.flist_target[index]).convert('RGB')
-        target_image, ref_image, gt_image = self.transform(common_image)
+        monochrome_image = Image.open(self.flist_target[index]).convert('L')
+        color_image = Image.open(self.flist_target[index]).convert('RGB')
+        gt_image = Image.open(self.flist_target[index]).convert('RGB')
+        
+        mo_image = self.transform_tar(monochrome_image)
+        co_image = self.transform_ref(color_image)
+        gt_image = self.transform_gt(gt_image)
         
         croph, cropw = 256, 512
         i, j, h, w = transforms.RandomCrop.get_params(common_image, output_size=(croph, cropw)) 
-        target_image = F.crop(target_image, i, j, h, w) 
-        ref_image = F.crop(ref_image, i, j, h, w)
+        target_image = F.crop(mo_image, i, j, h, w) 
+        ref_image = F.crop(co_image, i, j, h, w)
 
         # list_img = []
         # list_img.append(target_image)

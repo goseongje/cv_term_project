@@ -58,13 +58,24 @@ class ResidualBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-	def __init__(self, num_layers, block):
+	def __init__(self, num_layers, block, net_num):
 		super(ResNet, self).__init__()
 		self.num_layers = num_layers
-        # input image size : 1 x 256 x 512(c x h x w)
+        self.net_num = net_num
+		if net_num == 1:
+			self.stride = 2
+		else:
+			self.stride = 1
+
+		if net_num == 4:
+			self.out_channels = 1
+		else:
+			self.out_channels = 32
+
+		# input image size : 1 x 256 x 512(c x h x w)
         # input layer kernel = 5 X 5, stride = 2
 		self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=5, #1
-							   stride=2, padding=2, bias=False)
+							   stride=self.stride, padding=2, bias=False)
 		self.bn1 = nn.BatchNorm2d(32)
 		self.relu = nn.ReLU(inplace=True)
 
@@ -80,7 +91,7 @@ class ResNet(nn.Module):
 		self.layers_16n = self.get_layers(block, 32, 32, stride=1)	#16, 17
 		"""
         # output layer kernel = 3 X 3, feature map size = 16x128x256
-		self.conv2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, 
+		self.conv2 = nn.Conv2d(in_channels=32, out_channels=out_channels, kernel_size=3, 
 							   stride=1, padding=1, bias=False)		
 
 
@@ -248,10 +259,10 @@ class Regulation3d(nn.Module):
 
 		return x 
 
-def resnet():
+def resnet1():
 	block = ResidualBlock
 	# total number of layers if 8n + 2. if n is 2 then the depth of network is 18.	
-	model = ResNet(8, block)
+	model = ResNet(8, block, 1)
 	return model
 
 def attention():
@@ -263,7 +274,17 @@ def regulation3d():
 	model = Regulation3d(0, block)
 	return model
 
-# 모델 확인
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = resnet()
-summary(model, (1, 256, 512))
+def resnet2():
+	block = ResidualBlock	
+	model = ResNet(8, block, 2)
+	return model
+
+def resnet3():
+	block = ResidualBlock	
+	model = ResNet(8, block, 3)
+	return model
+
+def resnet4():
+	block = ResidualBlock	
+	model = ResNet(8, block, 4)
+	return model	
