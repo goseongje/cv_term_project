@@ -10,7 +10,7 @@ import numpy as np
 import cv2
 import skimage
 from torch.utils.data import Dataset, DataLoader
-from utils import imshow, load_filelist
+from utils import imshow, load_filelist, rgb_to_ycbcr
 
 class AddGaussianNoise(object):
     def __init__(self, mean=0., std=1.):
@@ -65,9 +65,9 @@ class ImageDataLoader(Dataset):
         transforms.Normalize((0.5), (0.5)),
         AddGaussianNoise(0., 0.03)])
     
-    transform_gt = transforms.Compose([
+    transform_gt = transforms.Compose([        
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])        
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])                
         # return transform_tar(img), transform_ref(img), transform_gt(img) 
         
 
@@ -86,11 +86,14 @@ class ImageDataLoader(Dataset):
         mo_image = self.transform_tar(monochrome_image)
         co_image = self.transform_ref(color_image)
         gt_image = self.transform_gt(gt_image)
+        gt_image = rgb_to_ycbcr(gt_image)
         
         croph, cropw = 256, 512
         i, j, h, w = transforms.RandomCrop.get_params(monochrome_image, output_size=(croph, cropw)) 
         target_image = F.crop(mo_image, i, j, h, w) 
         ref_image = F.crop(co_image, i, j, h, w)
+        gt_image = F.crop(gt_image, i, j, h, w)
+
         """
         list_img = []
         list_img.append(target_image)

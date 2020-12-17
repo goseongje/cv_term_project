@@ -44,8 +44,8 @@ os.environ['CUDA_VISIBLE_DEVICES'] = gpu_id
 np.random.seed(seed)
 
 # data load
-trainset = ImageDataLoader('./data/cityscapes/leftimg8bit')
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=8, shuffle=True, num_workers=num_worker)
+trainset = ImageDataLoader(path='./data/cityscapes/leftimg8bit', split='train_extra')
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=4, shuffle=True, num_workers=num_worker)
 
 # define model
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -55,7 +55,7 @@ model = model.to(device)
 
 criterion = nn.MSELoss()
 optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=0, momentum=0)
-#psnr = PSNR(255.0).to(device)
+psnr = PSNR(255.0).to(device)
 
 for epochs in range(epochs):
     train_bar = tqdm(trainloader)
@@ -63,12 +63,12 @@ for epochs in range(epochs):
     for train_iter, items in enumerate(train_bar):
         model.train()
 
-        # train
+        # train 1
         target = Variable(items[0]).to(device)
         guide = Variable(items[1]).to(device)
         gt = Variable(items[2]).to(device)
 
-        output = model(target, guide)
+        output = model(target, guide, gt)
         
         loss = 0
         mse_loss = criterion(output, gt)
