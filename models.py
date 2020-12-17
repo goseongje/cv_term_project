@@ -227,7 +227,8 @@ class Regulation3d(nn.Module):
 		x = self.relu(x)
 
 		x = self.output(x)
-		return x 
+		out = x.view(-1, x.shape[2], x.shape[3], x.shape[4])
+		return out 
 
 class WeightVolGen(nn.Module):
 	def __init__(self):
@@ -255,9 +256,9 @@ class WeightVolGen(nn.Module):
 		print("dddddddddddddd")
 		print(weight_volume.shape)
 		print(gt_image.shape)
-		rough_result = torch.cat([weight_volume, gt_image], dim=0)
-		print(rough_result)
-		exit()
+		rough = torch.cat([weight_volume, gt_image], dim=2)
+
+		print(rough.shape)		
 		return weight_volume
 
 class ColResJointLearning(nn.Module):
