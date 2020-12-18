@@ -25,15 +25,20 @@ class AddGaussianNoise(object):
 
 
 class ImageDataLoader(Dataset):
-    def __init__(self, path, split="train"):
+    def __init__(self, path, split="train_extra"):
         super(ImageDataLoader, self).__init__()
 
         self.path = path
         self.split = split
+        self.left = './leftImg8bit'
+        self.right = './rightImg8bit'
 
-        self.flist_mono = load_filelist(self.path, self.split)
-        self.flist_color = load_filelist(self.path, self.split)
-        self.flist_gt = load_filelist(self.path, self.split)
+        self.leftdir = os.path.join(self.path, self.left)
+        self.rightdir = os.path.join(self.path, self.right)
+
+        self.flist_mono = load_filelist(self.leftdir, self.split)
+        self.flist_color = load_filelist(self.rightdir, self.split)
+        self.flist_gt = load_filelist(self.rightdir, self.split)
         
         self.total = len(self.flist_mono)     
 

@@ -234,7 +234,6 @@ class WeightVolGen(nn.Module):
 	def __init__(self):
 		super(WeightVolGen, self).__init__()
 		self.block = ResidualBlock		
-
 		# resnet1 for Y(gray image)
 		self.resnet1_y = ResNet(8, self.block, 1)
 		# resnet1 for YR(ref image)
@@ -244,22 +243,12 @@ class WeightVolGen(nn.Module):
 		# 3-D Regulation		
 		self.regulation = Regulation3d(1)
 	
-	def forward(self, target_image, guide_image, gt_image):
-		print('input target image size : {}'.format(target_image.shape))
-		feature_map1 = self.resnet1_y(target_image)
-		print('input guide image size : {}'.format(guide_image.shape))
-		feature_map2 = self.resnet1_y(guide_image)				
-		print('input stacked fmap size : {}'.format(torch.stack([feature_map1, feature_map2], dim=2).shape))
-		attn_weighted_fvol = self.attention(torch.stack([feature_map1, feature_map2], dim=2))
-		print('input attn_weighted_fvol size : {}'.format(attn_weighted_fvol.shape))
-		weight_volume = self.regulation(attn_weighted_fvol)
-		print("dddddddddddddd")
-		print(weight_volume.shape)
-		print(gt_image.shape)
-		rough = torch.cat([weight_volume, gt_image], dim=2)
-
-		print(rough.shape)		
-		return weight_volume
+	def forward(self, target_image, guide_image, gt_image):		
+		feature_map1 = self.resnet1_y(target_image)		
+		feature_map2 = self.resnet1_y(guide_image)
+		attn_weighted_fvol = self.attention(torch.stack([feature_map1, feature_map2], dim=2))		
+		weight_volume = self.regulation(attn_weighted_fvol)				
+		return weight_volume	
 
 class ColResJointLearning(nn.Module):
 	def __init__(self):
@@ -267,8 +256,7 @@ class ColResJointLearning(nn.Module):
 
 	def forward(self, weight_volume):
 
-		return 0
-		
+		return 0	
 
 
 def resnet1():
@@ -298,10 +286,4 @@ def resnet3():
 def resnet4():
 	block = ResidualBlock	
 	model = ResNet(8, block, 4)
-	return model
-"""
-net1 = resnet1()
-summary(net1, (1, 256, 512), device="cpu")
-net = attention()
-summary(net, (32, 32, 128, 512), device="cpu")
-"""
+	return model	

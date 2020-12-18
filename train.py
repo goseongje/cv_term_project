@@ -13,7 +13,8 @@ import models
 from tqdm import tqdm
 from torch.autograd import Variable
 from dataset import ImageDataLoader
-from utils import PSNR
+from utils import PSNR, imshow
+from torchsummary import summary
 
 parser = argparse.ArgumentParser(description='Weight volume generation by Resnet1')
 parser.add_argument('--lr', default=0.001, help='')
@@ -44,8 +45,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = gpu_id
 np.random.seed(seed)
 
 # data load
-#trainset = ImageDataLoader(path='./data/cityscapes/leftimg8bit', split='train_extra')
-trainset = ImageDataLoader(path='./data/cityscapes/leftimg8bit', split='train')
+trainset = ImageDataLoader(path='./data/cityscapes', split='train_extra')
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=4, shuffle=True, num_workers=num_worker)
 
 # define model
@@ -56,7 +56,7 @@ model = model.to(device)
 
 criterion = nn.MSELoss()
 optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=0, momentum=0)
-#psnr = PSNR(255.0).to(device)
+psnr = PSNR(255.0).to(device)
 
 for epochs in range(epochs):
     train_bar = tqdm(trainloader)
@@ -69,8 +69,12 @@ for epochs in range(epochs):
         guide = Variable(items[1]).to(device)
         gt = Variable(items[2]).to(device)
 
-        output = model(target, guide, gt)
+        output = model(target, guide, gt)                           
+        tensor.detach().numpy()
+        imshow(output[0].to('cpu'))
+        print('result of Weight volume generation : {}'.format(output.shape))
         
+        exit()
         loss = 0
         mse_loss = criterion(output, gt)
         
