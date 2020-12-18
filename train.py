@@ -69,12 +69,9 @@ for epochs in range(epochs):
         guide = Variable(items[1]).to(device)
         gt = Variable(items[2]).to(device)
 
-        output = model(target, guide, gt)                           
-        tensor.detach().numpy()
-        imshow(output[0].to('cpu'))
+        output = model(target, guide, gt)
         print('result of Weight volume generation : {}'.format(output.shape))
         
-        exit()
         loss = 0
         mse_loss = criterion(output, gt)
         
